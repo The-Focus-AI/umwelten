@@ -1,12 +1,21 @@
 /**
- * MCP request handler — creates a stateless McpServer per request,
- * authenticates via Bearer token, and registers tools for the user.
+ * MCP request handler — authenticates via Bearer token, then serves the
+ * request through the official SDK 2.x `createMcpHandler` (protocol revision
+ * 2026-07-28 with the stateless 2025-era fallback). A fresh `McpServer` is
+ * built per request by the factory, with tools registered for the
+ * authenticated user and, when configured, the Skills extension attached.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import {
+  createMcpHandler,
+  McpServer,
+  type AuthInfo,
+  type McpRequestContext,
+} from '@modelcontextprotocol/server';
+import { toNodeHandler } from '@modelcontextprotocol/node';
 import type { McpServeStore, UpstreamOAuthProvider, McpToolRegistrar } from './types.js';
+import type { SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
 import { hashToken } from './oauth/token.js';
 
 export interface McpHandlerConfig {
@@ -15,6 +24,12 @@ export interface McpHandlerConfig {
   upstream: UpstreamOAuthProvider;
   store: McpServeStore;
   registerTools: McpToolRegistrar;
+  skills?: SkillsExtension;
+}
+
+/** The authenticated principal, carried to the server factory through `AuthInfo.extra`. */
+interface McpServePrincipal {
+  userId: string;
 }
 
 async function authenticateRequest(req: IncomingMessage, store: McpServeStore): Promise<string | null> {
@@ -61,98 +76,85 @@ async function getValidUpstreamToken(
   return tokens.access_token;
 }
 
-export async function handleMcpRequest(
-  config: McpHandlerConfig,
+/**
+ * Build the Node request handler for one mcp-serve config. The SDK handler is
+ * created once; the factory runs per request with the principal the bearer
+ * check established.
+ */
+export function createMcpRequestHandler(config: McpHandlerConfig): (
   req: IncomingMessage,
   res: ServerResponse,
   publicBaseUrl: string,
-): Promise<void> {
+) => Promise<void> {
   const { store, upstream } = config;
 
-  // Handle DELETE for session termination
-  if (req.method === 'DELETE') {
-    res.writeHead(200);
-    res.end('Session terminated');
-    return;
-  }
+  const sdkHandler = createMcpHandler(
+    async (ctx: McpRequestContext) => {
+      const principal = ctx.authInfo?.extra as McpServePrincipal | undefined;
+      if (!principal?.userId) throw new Error('mcp-serve: request reached the server factory unauthenticated');
+      const mcpServer = new McpServer({ name: config.serverName, version: config.serverVersion });
+      config.skills?.attach(mcpServer);
+      await config.registerTools(mcpServer, principal.userId, () =>
+        getValidUpstreamToken(principal.userId, store, upstream),
+      );
+      return mcpServer;
+    },
+    { onerror: (error) => console.error('MCP request error:', error) },
+  );
+  const nodeHandler = toNodeHandler(sdkHandler, {
+    onerror: (error) => console.error('MCP adapter error:', error),
+  });
 
-  // Handle HEAD probes (e.g., from Claude Code OAuth)
-  if (req.method === 'HEAD') {
-    const userId = await authenticateRequest(req, store);
-    if (!userId) {
-      sendUnauthorized(res, publicBaseUrl, { head: true });
+  return async (req, res, publicBaseUrl) => {
+    // Handle DELETE for session termination (stateless: nothing to drop).
+    if (req.method === 'DELETE') {
+      res.writeHead(200);
+      res.end('Session terminated');
       return;
     }
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    });
-    res.end();
-    return;
-  }
 
-  if (req.method !== 'POST' && req.method !== 'GET') {
-    res.writeHead(405, {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      Allow: 'GET, HEAD, POST, DELETE',
-    });
-    res.end(JSON.stringify({
-      error: 'method_not_allowed',
-      error_description: 'Use GET, HEAD, POST, or DELETE',
-    }));
-    return;
-  }
-
-  // Authenticate
-  const userId = await authenticateRequest(req, store);
-  if (!userId) {
-    sendUnauthorized(res, publicBaseUrl);
-    return;
-  }
-
-  // Parse request body
-  const rawBody = await new Promise<string>((resolve, reject) => {
-    let data = '';
-    req.on('data', (chunk: Buffer) => { data += chunk; });
-    req.on('end', () => resolve(data));
-    req.on('error', reject);
-  });
-
-  let parsedBody: unknown;
-  try {
-    parsedBody = rawBody ? JSON.parse(rawBody) : undefined;
-  } catch {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: 'Parse error: Invalid JSON' }, id: null }));
-    return;
-  }
-
-  // Create fresh McpServer for this request (stateless)
-  const mcpServer = new McpServer({
-    name: config.serverName,
-    version: config.serverVersion,
-  });
-
-  // Register tools with a token-getter closure
-  const getUpstreamToken = () => getValidUpstreamToken(userId, store, upstream);
-  await config.registerTools(mcpServer, userId, getUpstreamToken);
-
-  // Create transport in stateless mode
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  });
-
-  try {
-    await mcpServer.connect(transport);
-    await transport.handleRequest(req, res, parsedBody);
-  } catch (error) {
-    console.error('MCP request error:', error);
-    if (!res.headersSent) {
-      res.writeHead(500);
-      res.end('Internal server error');
+    // Handle HEAD probes (e.g., from Claude Code OAuth)
+    if (req.method === 'HEAD') {
+      const userId = await authenticateRequest(req, store);
+      if (!userId) {
+        sendUnauthorized(res, publicBaseUrl, { head: true });
+        return;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end();
+      return;
     }
-  } finally {
-    try { await transport.close(); } catch { /* ignore cleanup errors */ }
-  }
+
+    if (req.method !== 'POST' && req.method !== 'GET') {
+      res.writeHead(405, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        Allow: 'GET, HEAD, POST, DELETE',
+      });
+      res.end(JSON.stringify({
+        error: 'method_not_allowed',
+        error_description: 'Use GET, HEAD, POST, or DELETE',
+      }));
+      return;
+    }
+
+    const userId = await authenticateRequest(req, store);
+    if (!userId) {
+      sendUnauthorized(res, publicBaseUrl);
+      return;
+    }
+
+    const token = req.headers.authorization!.slice(7);
+    const authInfo: AuthInfo = {
+      token,
+      clientId: userId,
+      scopes: [],
+      extra: { userId } satisfies McpServePrincipal,
+    };
+    (req as IncomingMessage & { auth?: AuthInfo }).auth = authInfo;
+    await nodeHandler(req as IncomingMessage & { auth?: AuthInfo }, res);
+  };
 }

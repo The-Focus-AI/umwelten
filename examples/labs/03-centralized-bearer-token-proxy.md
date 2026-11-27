@@ -80,7 +80,7 @@ Requirements:
    - Emit structured JSON audit records (`timestamp`, `agentId`, `method`, `upstream`, `status`, `latencyMs`, `redactions`).
 4. Demonstrate BOTH:
    - An HTTP REST client / `DurableHabitat` tool calling `http://127.0.0.1:<port>/proxy/api/...` with zero upstream secrets in its environment (including an adversarial "echo headers" endpoint proving redaction works, and a forbidden `DELETE` request returning `403`).
-   - An MCP client (`StreamableHttpTransport` / `McpClient` from `@earendil-works/pi-mcp`) connecting to a mock protected `createMcpServer` (`MemoryStore`) *through* `/proxy/mcp` with only the agent proxy token!
+   - An MCP client (`StreamableHTTPClientTransport` / `Client` from `@modelcontextprotocol/client` 2.x) connecting to a mock protected `createMcpServer` (`MemoryStore`) *through* `/proxy/mcp` with only the agent proxy token!
 5. Support `--smoke` (starts proxy + mock REST upstream + mock MCP upstream on ephemeral ports, runs all positive + adversarial assertions, prints PASS table, closes everything cleanly) and `--port 7453` interactive audit mode.
 ```
 

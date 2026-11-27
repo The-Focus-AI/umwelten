@@ -1,9 +1,13 @@
 /**
- * Remote MCP client powered by `@earendil-works/pi-mcp`.
+ * Remote MCP client powered by the official `@modelcontextprotocol/client` 2.x SDK.
  *
- * Connects to any remote MCP server over Streamable HTTP with OAuth 2.1 (PKCE).
- * Preserves full MCP `CallToolResult` blocks — including `ui://` `EmbeddedResource`
- * payloads and `_meta` — while exposing tools in Umwelten's `Tool` format.
+ * Connects to any remote MCP server over Streamable HTTP, negotiating protocol
+ * revision 2026-07-28 (`server/discover`) with fallback to the 2025-era
+ * `initialize` handshake, and runs the OAuth 2.1 (PKCE) browser flow when the
+ * server answers 401. Preserves full MCP `CallToolResult` blocks — including
+ * `ui://` `EmbeddedResource` payloads and `_meta` — while exposing tools in
+ * Umwelten's `Tool` format, and exposes the server's Skills extension
+ * (`io.modelcontextprotocol/skills`) through the SDK's `SkillsClient`.
  */
 
 import { mkdir, readFile, writeFile, rm, chmod } from "node:fs/promises";
@@ -13,24 +17,21 @@ import { createServer } from "node:http";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
-  McpAuthRequiredError,
-  McpClient,
-  StreamableHttpTransport,
+  Client,
+  StreamableHTTPClientTransport,
+  UnauthorizedError,
   type CallToolResult,
   type ContentBlock,
-  type Tool as PiMcpTool,
-} from "@earendil-works/pi-mcp";
-import {
-  adaptOAuthProvider,
-  authorizeMcp,
-  parseWwwAuthenticate,
-  type OAuthClientInformationMixed,
+  type FetchLike,
   type OAuthClientMetadata,
   type OAuthClientProvider,
-  type OAuthTokens,
-} from "@earendil-works/pi-mcp/oauth";
+  type ServerCapabilities,
+  type Tool as McpToolDescriptor,
+} from "@modelcontextprotocol/client";
+import { SkillsClient } from "@modelcontextprotocol/client/ext/skills";
 
-type MCPToolDescriptor = PiMcpTool;
+type StoredClientInformation = Awaited<ReturnType<OAuthClientProvider["clientInformation"]>>;
+type StoredTokens = Awaited<ReturnType<OAuthClientProvider["tokens"]>>;
 
 export interface RemoteMcpExecutableTool {
   description: string;
@@ -42,8 +43,8 @@ export interface RemoteMcpExecutableTool {
 }
 
 interface StoredOAuthState {
-  clientInformation?: OAuthClientInformationMixed;
-  tokens?: OAuthTokens;
+  clientInformation?: StoredClientInformation;
+  tokens?: StoredTokens;
   codeVerifier?: string;
 }
 
@@ -108,7 +109,7 @@ class FileOAuthClientProvider implements OAuthClientProvider {
     };
   }
 
-  async state(): Promise<string> {
+  state(): string {
     this.pendingState = randomUUID();
     return this.pendingState;
   }
@@ -117,46 +118,46 @@ class FileOAuthClientProvider implements OAuthClientProvider {
     return this.pendingState;
   }
 
-  async clientInformation(): Promise<OAuthClientInformationMixed | undefined> {
-    return (await readJsonFile<StoredOAuthState>(this.authStorePath))
-      ?.clientInformation;
+  private async load(): Promise<StoredOAuthState> {
+    return (await readJsonFile<StoredOAuthState>(this.authStorePath)) ?? {};
   }
 
-  async saveClientInformation(
-    clientInformation: OAuthClientInformationMixed,
-  ): Promise<void> {
-    const state =
-      (await readJsonFile<StoredOAuthState>(this.authStorePath)) || {};
+  private async save(state: StoredOAuthState): Promise<void> {
+    await writePrivateFile(this.authStorePath, JSON.stringify(state, null, 2));
+  }
+
+  async clientInformation(): Promise<StoredClientInformation> {
+    return (await this.load()).clientInformation;
+  }
+
+  async saveClientInformation(clientInformation: NonNullable<StoredClientInformation>): Promise<void> {
+    const state = await this.load();
     state.clientInformation = clientInformation;
-    await writePrivateFile(this.authStorePath, JSON.stringify(state, null, 2));
+    await this.save(state);
   }
 
-  async tokens(): Promise<OAuthTokens | undefined> {
-    return (await readJsonFile<StoredOAuthState>(this.authStorePath))?.tokens;
+  async tokens(): Promise<StoredTokens> {
+    return (await this.load()).tokens;
   }
 
-  async saveTokens(tokens: OAuthTokens): Promise<void> {
-    const state =
-      (await readJsonFile<StoredOAuthState>(this.authStorePath)) || {};
+  async saveTokens(tokens: NonNullable<StoredTokens>): Promise<void> {
+    const state = await this.load();
     state.tokens = tokens;
-    await writePrivateFile(this.authStorePath, JSON.stringify(state, null, 2));
+    await this.save(state);
   }
 
-  async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
+  redirectToAuthorization(authorizationUrl: URL): void {
     openBrowser(authorizationUrl.toString());
   }
 
   async saveCodeVerifier(codeVerifier: string): Promise<void> {
-    const state =
-      (await readJsonFile<StoredOAuthState>(this.authStorePath)) || {};
+    const state = await this.load();
     state.codeVerifier = codeVerifier;
-    await writePrivateFile(this.authStorePath, JSON.stringify(state, null, 2));
+    await this.save(state);
   }
 
   async codeVerifier(): Promise<string> {
-    const codeVerifier = (
-      await readJsonFile<StoredOAuthState>(this.authStorePath)
-    )?.codeVerifier;
+    const codeVerifier = (await this.load()).codeVerifier;
     if (!codeVerifier) {
       throw new Error("No saved PKCE verifier found. Run the login flow again.");
     }
@@ -164,18 +165,18 @@ class FileOAuthClientProvider implements OAuthClientProvider {
   }
 
   async invalidateCredentials(
-    scope: "all" | "client" | "tokens" | "verifier",
+    scope: "all" | "client" | "tokens" | "verifier" | "discovery",
   ): Promise<void> {
     if (scope === "all") {
       await rm(this.authStorePath, { force: true });
       return;
     }
-    const state =
-      (await readJsonFile<StoredOAuthState>(this.authStorePath)) || {};
+    if (scope === "discovery") return;
+    const state = await this.load();
     if (scope === "client") delete state.clientInformation;
     if (scope === "tokens") delete state.tokens;
     if (scope === "verifier") delete state.codeVerifier;
-    await writePrivateFile(this.authStorePath, JSON.stringify(state, null, 2));
+    await this.save(state);
   }
 
   async reset(): Promise<void> {
@@ -204,48 +205,37 @@ function openBrowser(url: string): void {
   child.unref();
 }
 
+/** Waits for the OAuth redirect and returns its query parameters (`code`, `state`, `iss`). */
 async function waitForOAuthCallback(options: {
   port: number;
   timeoutMs: number;
   expectedState?: string;
-}): Promise<string> {
+}): Promise<URLSearchParams> {
   const { port, timeoutMs, expectedState } = options;
 
-  return await new Promise<string>((resolvePromise, reject) => {
+  return await new Promise<URLSearchParams>((resolvePromise, reject) => {
     const server = createServer((req, res) => {
       const requestUrl = new URL(req.url || "/", `http://127.0.0.1:${port}`);
-      const code = requestUrl.searchParams.get("code");
-      const error = requestUrl.searchParams.get("error");
-      const state = requestUrl.searchParams.get("state");
+      const params = requestUrl.searchParams;
+      const error = params.get("error");
 
-      if (error) {
-        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<h1>Authorization failed</h1><p>You can close this window.</p>");
+      const fail = (status: number, title: string, err: Error) => {
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(`<h1>${title}</h1><p>You can close this window.</p>`);
         cleanup();
-        reject(new Error(`OAuth authorization failed: ${error}`));
-        return;
-      }
+        reject(err);
+      };
 
-      if (!code) {
-        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<h1>Missing authorization code</h1><p>You can close this window.</p>");
-        cleanup();
-        reject(new Error("No authorization code was returned."));
-        return;
-      }
-
-      if (expectedState && state !== expectedState) {
-        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-        res.end("<h1>State mismatch</h1><p>You can close this window.</p>");
-        cleanup();
-        reject(new Error("OAuth state mismatch."));
-        return;
+      if (error) return fail(400, "Authorization failed", new Error(`OAuth authorization failed: ${error}`));
+      if (!params.get("code")) return fail(400, "Missing authorization code", new Error("No authorization code was returned."));
+      if (expectedState && params.get("state") !== expectedState) {
+        return fail(400, "State mismatch", new Error("OAuth state mismatch."));
       }
 
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end("<h1>Authorization successful!</h1><p>You can close this window.</p>");
       cleanup();
-      resolvePromise(code);
+      resolvePromise(params);
     });
 
     const timeout = setTimeout(() => {
@@ -308,34 +298,53 @@ function serializeResult(result: CallToolResult): {
 
 export interface RemoteMcpClientOptions {
   serverUrl: string;
+  /**
+   * Host-assigned label for this server. The Skills extension requires hosts
+   * to identify servers by their own label, never the server's self-reported
+   * `serverInfo.name`. Defaults to the URL's host.
+   */
+  label?: string;
   scope?: string;
   oauthPort?: number;
   oauthTimeoutMs?: number;
   authStorePath?: string;
   clientName?: string;
-  toolFilter?: (tool: MCPToolDescriptor) => boolean;
+  toolFilter?: (tool: McpToolDescriptor) => boolean;
   headers?: Record<string, string>;
+  /**
+   * Fail with `UnauthorizedError` instead of opening a browser when the
+   * server asks for OAuth (for non-interactive hosts and tests).
+   */
+  interactiveAuth?: boolean;
+  /** Custom fetch (e.g. an in-process server's `handler.fetch` in tests). */
+  fetch?: FetchLike;
 }
 
 export class RemoteMcpClient {
-  private readonly serverUrl: string;
+  readonly serverUrl: string;
+  readonly label: string;
   private readonly oauthPort: number;
   private readonly oauthTimeoutMs: number;
-  private readonly toolFilter: (tool: MCPToolDescriptor) => boolean;
+  private readonly toolFilter: (tool: McpToolDescriptor) => boolean;
   private readonly headers: Record<string, string> | undefined;
+  private readonly interactiveAuth: boolean;
+  private readonly fetchImpl: FetchLike | undefined;
   private readonly provider: FileOAuthClientProvider;
-  private client: McpClient | null = null;
-  private transport: StreamableHttpTransport | null = null;
+  private client: Client | null = null;
+  private transport: StreamableHTTPClientTransport | null = null;
+  private skillsClient: SkillsClient | null = null;
   private tools: Record<string, RemoteMcpExecutableTool> = {};
-  private toolNames: string[] = [];
-  private toolDescriptions: Map<string, string> = new Map();
+  private toolDescriptors: McpToolDescriptor[] = [];
 
   constructor(options: RemoteMcpClientOptions) {
     this.serverUrl = options.serverUrl;
+    this.label = options.label ?? new URL(options.serverUrl).host;
     this.oauthPort = options.oauthPort ?? 3339;
     this.oauthTimeoutMs = options.oauthTimeoutMs ?? 300_000;
     this.toolFilter = options.toolFilter ?? (() => true);
     this.headers = options.headers;
+    this.interactiveAuth = options.interactiveAuth ?? true;
+    this.fetchImpl = options.fetch;
 
     const scope = (options.scope || "mcp")
       .split(/\s+/)
@@ -354,17 +363,17 @@ export class RemoteMcpClient {
   }
 
   private createPair(): {
-    client: McpClient;
-    transport: StreamableHttpTransport;
+    client: Client;
+    transport: StreamableHTTPClientTransport;
   } {
-    const client = new McpClient({
-      name: "umwelten-mcp-client",
-      version: "1.0.0",
-    });
-    const transport = new StreamableHttpTransport({
-      url: this.serverUrl,
-      headers: this.headers,
-      authProvider: adaptOAuthProvider(this.provider),
+    const client = new Client(
+      { name: "umwelten-mcp-client", version: "2.0.0" },
+      { versionNegotiation: { mode: "auto" } },
+    );
+    const transport = new StreamableHTTPClientTransport(new URL(this.serverUrl), {
+      ...(this.headers ? { requestInit: { headers: this.headers } } : {}),
+      ...(this.interactiveAuth ? { authProvider: this.provider } : {}),
+      ...(this.fetchImpl ? { fetch: this.fetchImpl } : {}),
     });
     return { client, transport };
   }
@@ -379,28 +388,16 @@ export class RemoteMcpClient {
     try {
       await this.client.connect(this.transport);
     } catch (error) {
-      if (!(error instanceof McpAuthRequiredError)) throw error;
+      if (!this.interactiveAuth || !(error instanceof UnauthorizedError)) throw error;
 
-      const challenge = error.wwwAuthenticate
-        ? parseWwwAuthenticate(error.wwwAuthenticate)
-        : undefined;
-      await authorizeMcp(this.provider, {
-        serverUrl: this.serverUrl,
-        resourceMetadataUrl: challenge?.resourceMetadataUrl,
-        scope: challenge?.scope,
-      });
-
-      const code = await waitForOAuthCallback({
+      // The transport already ran discovery + DCR and opened the browser via
+      // `redirectToAuthorization`; wait for the redirect, then exchange the code.
+      const callback = await waitForOAuthCallback({
         port: this.oauthPort,
         timeoutMs: this.oauthTimeoutMs,
         expectedState: this.provider.getPendingState(),
       });
-
-      await authorizeMcp(this.provider, {
-        serverUrl: this.serverUrl,
-        authorizationCode: code,
-        resourceMetadataUrl: challenge?.resourceMetadataUrl,
-      });
+      await this.transport.finishAuth(callback);
 
       pair = this.createPair();
       this.client = pair.client;
@@ -408,21 +405,28 @@ export class RemoteMcpClient {
       await this.client.connect(this.transport);
     }
 
-    const discovered = await this.client.listTools();
-    const filtered = discovered.filter(this.toolFilter);
+    this.skillsClient = new SkillsClient(this.client);
+    await this.refreshTools();
+  }
 
+  /** Re-list tools (e.g. after `notifications/tools/list_changed`). */
+  async refreshTools(): Promise<void> {
+    const client = this.requireClient();
+    const discovered = client.getServerCapabilities()?.tools ? (await client.listTools()).tools : [];
+    const filtered = discovered.filter(this.toolFilter);
+    this.toolDescriptors = filtered;
     this.tools = Object.fromEntries(
       filtered.map((td) => [td.name, this.toUmweltenTool(td)]),
     );
-    this.toolNames = filtered.map((td) => td.name).sort();
-    this.toolDescriptions = new Map(
-      filtered.map((td) => [td.name, td.description || ""]),
-    );
   }
 
-  private toUmweltenTool(toolDef: MCPToolDescriptor): RemoteMcpExecutableTool {
-    const client = this.client;
-    if (!client) throw new Error("MCP client not connected");
+  private requireClient(): Client {
+    if (!this.client) throw new Error(`MCP client for ${this.label} is not connected`);
+    return this.client;
+  }
+
+  private toUmweltenTool(toolDef: McpToolDescriptor): RemoteMcpExecutableTool {
+    const client = this.requireClient();
 
     return {
       description: toolDef.description || `MCP tool: ${toolDef.name}`,
@@ -431,11 +435,10 @@ export class RemoteMcpClient {
         properties: {},
       }) as Record<string, unknown>,
       execute: async (params, opts) => {
-        const result = await client.callTool(
-          toolDef.name,
-          (params ?? {}) as Record<string, unknown>,
-          { signal: opts?.abortSignal },
-        );
+        const result = (await client.callTool(
+          { name: toolDef.name, arguments: (params ?? {}) as Record<string, unknown> },
+          { signal: opts?.abortSignal, toolDefinition: toolDef },
+        )) as CallToolResult;
         const { serialized, uiResources } = serializeResult(result);
         if (result.isError) {
           return { tool: toolDef.name, success: false, error: serialized };
@@ -451,24 +454,56 @@ export class RemoteMcpClient {
     };
   }
 
-  /** Underlying `@earendil-works/pi-mcp` `McpClient` (preserves raw `resources/read`, `ui://`, and `_meta`). */
-  get rawClient(): McpClient | null {
+  /** Underlying SDK `Client` (raw `resources/read`, `ui://`, and `_meta`). */
+  get rawClient(): Client | null {
     return this.client;
+  }
+
+  /**
+   * The SDK's Skills extension client for this connection (list, get,
+   * verified read, readDirectory). `skills.supported` is `false` when the
+   * server does not declare `io.modelcontextprotocol/skills`.
+   */
+  get skills(): SkillsClient {
+    if (!this.skillsClient) throw new Error(`MCP client for ${this.label} is not connected`);
+    return this.skillsClient;
+  }
+
+  /** Negotiated protocol revision, e.g. `2026-07-28`, or a 2025 revision after fallback. */
+  get protocolVersion(): string | undefined {
+    return this.client?.getNegotiatedProtocolVersion();
+  }
+
+  get serverInfo(): { name: string; version: string } | undefined {
+    return this.client?.getServerVersion();
+  }
+
+  get serverCapabilities(): ServerCapabilities | undefined {
+    return this.client?.getServerCapabilities();
+  }
+
+  get instructions(): string | undefined {
+    return this.client?.getInstructions();
   }
 
   getTools(): Record<string, RemoteMcpExecutableTool> {
     return { ...this.tools };
   }
 
+  getToolDescriptors(): McpToolDescriptor[] {
+    return [...this.toolDescriptors];
+  }
+
   getToolNames(): string[] {
-    return [...this.toolNames];
+    return this.toolDescriptors.map((t) => t.name).sort();
   }
 
   getToolDescription(name: string): string | undefined {
-    return this.toolDescriptions.get(name);
+    return this.toolDescriptors.find((t) => t.name === name)?.description;
   }
 
   async disconnect(): Promise<void> {
+    this.skillsClient = null;
     if (this.client) {
       await this.client.close().catch(() => undefined);
       this.client = null;

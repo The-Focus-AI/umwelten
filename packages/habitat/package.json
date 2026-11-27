@@ -29,7 +29,6 @@
     "@earendil-works/pi-codemode": "1.6.0",
     "@earendil-works/pi-durable": "1.6.0",
     "@earendil-works/pi-env": "1.6.0",
-    "@earendil-works/pi-mcp": "1.6.0",
     "@earendil-works/pi-schema": "1.6.0",
     "@leocavalcante/pi-a2a": "0.5.1",
     "@mcp-ui/server": "^6.1.0",

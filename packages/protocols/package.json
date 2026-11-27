@@ -14,7 +14,7 @@
       "import": "./src/*.ts"
     }
   },
-  "description": "OAuth 2.1 MCP server framework, pi-mcp client (with ui:// preservation), and Pi Durable A2A 1.0 surface",
+  "description": "OAuth 2.1 MCP server framework and client on the official MCP SDK 2.x (protocol 2026-07-28, ui:// preservation, Skills extension host), and Pi Durable A2A 1.0 surface",
   "license": "MIT",
   "engines": {
     "node": ">=22.19.0"
@@ -24,9 +24,11 @@
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.3.0",
-    "@earendil-works/pi-mcp": "1.6.0",
     "@leocavalcante/pi-a2a": "0.5.1",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/core": "2.4.0",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@neondatabase/serverless": "^1.1.0",
     "zod": "^4.4.3"
   },

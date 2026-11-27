@@ -1,6 +1,6 @@
 # Lab 05 — MCP OAuth 2.1 + `ui://` `EmbeddedResource` Round-Trip Lab
 
-- **Goal:** Exercise an OAuth 2.1 `mcp-serve` Streamable HTTP server (`createMcpServer` / `MemoryStore`) paired with `RemoteMcpClient` (`@earendil-works/pi-mcp`) and inspect the exact split between **concise text sent to the LLM** and **full `ui://` `EmbeddedResource` + `_meta` payloads preserved for the human**.
+- **Goal:** Exercise an OAuth 2.1 `mcp-serve` Streamable HTTP server (`createMcpServer` / `MemoryStore`) paired with `RemoteMcpClient` (`@modelcontextprotocol/client` 2.x) and inspect the exact split between **concise text sent to the LLM** and **full `ui://` `EmbeddedResource` + `_meta` payloads preserved for the human**.
 - **Modes:** Automated offline loopback OAuth 2.1 stub + interactive `RemoteMcpClient` inspector (plus `--live` against any real external MCP URL).
 - **Repo Anchors:** [`packages/protocols/src/mcp-serve/server.ts`](../../packages/protocols/src/mcp-serve/server.ts), [`packages/protocols/src/mcp-serve/memory-store.ts`](../../packages/protocols/src/mcp-serve/memory-store.ts), [`packages/protocols/src/mcp/client/remote.ts`](../../packages/protocols/src/mcp/client/remote.ts), [`docs/specs/interfaces/protocols-and-extensions.md`](../../docs/specs/interfaces/protocols-and-extensions.md).
 
@@ -19,7 +19,7 @@
 ```mermaid
 sequenceDiagram
     participant Probe as "discoverAgentEndpoint"
-    participant Client as "RemoteMcpClient (pi-mcp)"
+    participant Client as "RemoteMcpClient (MCP SDK 2.x)"
     participant Server as "createMcpServer (127.0.0.1:7455)"
     participant Up as "Local Stub OAuth Upstream (:0)"
 

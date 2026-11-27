@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Skills agent · chat</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #fff; --line: #e6e4df; --text: #1d1d1b; --muted: #75736d; --faint: #a3a19b;
+    --accent: #3b5bdb; --accent-soft: #edf1ff; --ok: #2f9e44; --ok-soft: #ebfbee; --warn: #b7791f; --warn-soft: #fff8e6; --bad: #c92a2a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); height: 100vh; display: grid; grid-template-rows: 56px 1fr; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--text); padding: 6px 12px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.link { border: 0; background: none; padding: 0; color: var(--muted); font-size: 12px; }
+  button.link:hover { color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  input { font: inherit; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); width: 100%; }
+  input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+  /* top bar: the agent this page talks to */
+  header { display: flex; align-items: center; gap: 14px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  header .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+  header .dot.off { background: var(--bad); }
+  header .title { font-weight: 650; }
+  header .meta { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  header a { color: var(--muted); font-size: 13px; text-decoration: none; }
+  header a:hover { color: var(--accent); }
+  header .new-chat { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 10px; }
+  header .new-chat svg { width: 16px; height: 16px; }
+  header .new-chat:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+
+  /* sidebar: what the agent is connected to */
+  aside { border-right: 1px solid var(--line); overflow-y: auto; padding: 18px 16px; }
+  .side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .side-head h2 { font-size: 13px; font-weight: 650; margin: 0; }
+  #addForm { display: none; gap: 6px; flex-direction: column; margin-bottom: 14px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  #addForm.open { display: flex; }
+  #addForm .row { display: flex; gap: 6px; }
+  .error { color: var(--bad); font-size: 12px; }
+  .source { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+  .source summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+  .source summary::-webkit-details-marker { display: none; }
+  .source .name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: #f1f0ec; color: var(--muted); }
+  .source .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .source .body { border-top: 1px solid var(--line); padding: 8px 14px 12px; }
+  .source h3 { font-size: 11px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 4px; }
+  .item { display: grid; grid-template-columns: 16px 1fr; gap: 6px; padding: 5px 0; }
+  .item .label { font-weight: 550; }
+  .item .desc { color: var(--muted); font-size: 12px; }
+  .item .actions { display: flex; gap: 10px; margin-top: 2px; }
+  .status { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; border: 1.5px solid var(--faint); }
+  .status.approved { border-color: var(--ok); }
+  .status.active { background: var(--ok); border-color: var(--ok); }
+  .tool-icon { color: var(--faint); font-size: 11px; margin-top: 2px; }
+  .source-foot { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+  .source-foot .url { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); }
+  .legend { color: var(--faint); font-size: 12px; display: flex; gap: 12px; margin-top: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .status { margin: 0; }
+  .note { color: var(--warn); font-size: 12px; margin-top: 8px; }
+
+  /* conversation */
+  main { display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+  #stream { overflow-y: auto; padding: 28px 20px; }
+  .col { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .empty { color: var(--muted); text-align: center; margin-top: 18vh; }
+  .empty b { color: var(--text); display: block; font-size: 16px; margin-bottom: 6px; }
+  .user { align-self: flex-end; background: var(--accent); color: #fff; padding: 9px 14px; border-radius: 14px 14px 4px 14px; max-width: 80%; white-space: pre-wrap; }
+  .assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); padding: 12px 16px; border-radius: 14px 14px 14px 4px; max-width: 90%; }
+  .assistant > :first-child { margin-top: 0; } .assistant > :last-child { margin-bottom: 0; }
+  .assistant p { margin: 0 0 8px; }
+  .assistant h1, .assistant h2, .assistant h3, .assistant h4 { line-height: 1.3; margin: 14px 0 6px; }
+  .assistant h1 { font-size: 18px; } .assistant h2 { font-size: 16px; } .assistant h3, .assistant h4 { font-size: 14.5px; }
+  .assistant ul, .assistant ol { margin: 0 0 8px; padding-left: 22px; } .assistant li { margin: 2px 0; } .assistant li > p { margin: 0; }
+  .assistant a { color: var(--accent); }
+  .assistant blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+  .assistant hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+  .assistant code { background: #f4f3ef; padding: 1px 5px; border-radius: 4px; }
+  .assistant pre { background: #f4f3ef; padding: 10px 12px; border-radius: 8px; overflow-x: auto; margin: 0 0 8px; }
+  .assistant pre code { background: none; padding: 0; }
+  .assistant table { border-collapse: collapse; margin: 0 0 8px; font-size: 13px; display: block; overflow-x: auto; }
+  .assistant th, .assistant td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; }
+  .assistant th { background: #f4f3ef; font-weight: 600; }
+  .event { align-self: flex-start; color: var(--muted); font-size: 12.5px; }
+  .event summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+  .event summary::-webkit-details-marker { display: none; }
+  .event summary::before { content: "›"; display: inline-block; transition: transform .1s; color: var(--faint); }
+  .event[open] summary::before { transform: rotate(90deg); }
+  .event.err { color: var(--bad); }
+  .event pre { white-space: pre-wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px; max-height: 260px; overflow: auto; color: var(--text); margin: 6px 0 0; }
+  .ui-card { align-self: stretch; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .ui-card .ui-head { display: flex; gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--faint); }
+  .ui-card .ui-head b { color: var(--muted); font-weight: 600; }
+  .ui-card iframe { display: block; width: 100%; height: 120px; border: 0; background: #fff; }
+  .thinking { align-self: flex-start; color: var(--faint); font-size: 13px; }
+  .ask { border: 1px solid #f1d9a6; background: var(--warn-soft); border-radius: 12px; padding: 14px 16px; }
+  .ask .q { font-weight: 650; margin-bottom: 4px; }
+  .ask .why { color: var(--muted); font-size: 13px; }
+  .ask .files { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  .ask .buttons { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .ask pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0 0; white-space: pre-wrap; }
+
+  .composer { padding: 12px 20px 18px; border-top: 1px solid var(--line); background: var(--bg); }
+  .composer .col { gap: 8px; }
+  #using { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); min-height: 0; }
+  .chip { background: var(--ok-soft); color: var(--ok); border-radius: 999px; padding: 2px 6px 2px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+  .chip .origin { color: var(--muted); font-weight: 400; }
+  .chip button { border: 0; background: none; padding: 0 4px; color: var(--muted); }
+  #chatForm { display: flex; gap: 8px; }
+
+  dialog { border: 1px solid var(--line); border-radius: 12px; width: min(720px, 92vw); padding: 0; }
+  dialog .dh { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 10px; }
+  dialog .dh b { flex: 1; }
+  dialog pre { margin: 0; padding: 16px; white-space: pre-wrap; max-height: 65vh; overflow: auto; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="agentDot"></span>
+  <span class="title" id="agentName">Agent</span>
+  <span class="meta" id="agentMeta"></span>
+  <span class="spacer"></span>
+  <button class="new-chat" id="newChat" title="Start a new conversation" aria-label="New chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>New chat</button>
+  <a id="cardLink" target="_blank" rel="noreferrer">A2A card ↗</a>
+</header>
+<div class="layout">
+  <aside>
+    <div class="side-head"><h2>Connected sources</h2><button class="link" id="toggleAdd">+ Add server</button></div>
+    <form id="addForm">
+      <input id="url" placeholder="MCP or A2A URL, e.g. http://127.0.0.1:7701/mcp" required />
+      <div class="row"><input id="label" placeholder="label (optional)" /><button class="primary">Connect</button></div>
+      <div class="error" id="addErr"></div>
+    </form>
+    <div id="sources"></div>
+    <div class="legend"><span><i class="status"></i>available</span><span><i class="status approved"></i>approved</span><span><i class="status active"></i>in use</span></div>
+  </aside>
+  <main>
+    <div id="stream"><div class="col" id="messages"></div></div>
+    <div class="composer"><div class="col">
+      <div id="using"></div>
+      <form id="chatForm"><input id="text" autocomplete="off" placeholder="Message the agent… e.g. “Draft release notes for: faster CSV export, fixed login timeout”" /><button class="primary" id="send">Send</button></form>
+    </div></div>
+  </main>
+</div>
+<dialog id="viewer"><div class="dh"><b id="viewerTitle"></b><button class="link" onclick="viewer.close()">Close</button></div><pre id="viewerBody"></pre></dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+const viewer = $("viewer");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const attr = (o) => esc(JSON.stringify(o));
+const openSources = new Set();
+let lastSig = "";
+
+async function api(path, body, method) {
+  const res = await fetch(path, { method: method ?? (body ? "POST" : "GET"), headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+
+// Markdown via `marked` (GFM). Model output is untrusted: raw HTML is shown as text,
+// links open in a new tab and only http(s)/mailto, images become links.
+let marked;
+import("/vendor/marked.js").then(({ Marked }) => {
+  const safe = (href) => /^(https?:|mailto:)/i.test(String(href || "").trim());
+  marked = new Marked({ gfm: true, breaks: true }).use({
+    renderer: {
+      html({ text }) { return esc(text); },
+      link({ href, title, tokens }) {
+        const label = this.parser.parseInline(tokens);
+        return safe(href) ? `<a href="${esc(href)}"${title ? ` title="${esc(title)}"` : ""} target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+      },
+      image({ href, text }) { return safe(href) ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(text || href)}</a>` : esc(text); },
+    },
+  });
+  lastSig = ""; poll();
+});
+function md(text) {
+  return marked ? marked.parse(String(text)) : `<p>${esc(text).replace(/\n/g, "<br>")}</p>`;
+}
+
+function renderHeader(st) {
+  $("agentDot").className = "dot";
+  $("agentName").textContent = st.agent?.name ?? "Agent";
+  $("agentMeta").textContent = `${st.model}${st.bash ? " · can run bash (asks first while a skill is in use)" : ""}`;
+  $("cardLink").href = st.agent?.agentCard ?? "#";
+}
+
+function skillRow(s, k) {
+  const state = k.active ? "active" : k.approved ? "approved" : "";
+  const title = k.active ? "In use in this conversation" : k.approved ? "Approved for this exact version" : "Available; the agent asks before loading";
+  return `<div class="item"><i class="status ${state}" title="${title}"></i><div>
+    <div class="label">${esc(k.name)}</div>
+    <div class="desc">${esc(k.description)}</div>
+    <div class="actions"><button class="link" onclick="view(${attr({ serverLabel: s.label, uri: k.uri, name: k.name })})">View SKILL.md</button>${k.approved ? `<button class="link" onclick="revoke(${attr({ serverLabel: s.label, uri: k.uri })})">Revoke</button>` : ""}</div>
+    ${k.ignoredFields.length ? `<div class="desc" style="color:var(--warn)">Asks for ${esc(k.ignoredFields.join(", "))} — ignored</div>` : ""}
+  </div></div>`;
+}
+
+function renderSources(st) {
+  if (!st.servers.length) { $("sources").innerHTML = `<div class="desc" style="color:var(--muted)">Nothing connected yet. Add an MCP server to give the agent tools and skills.</div>`; return; }
+  $("sources").innerHTML = st.servers.map((s) => {
+    const sub = s.kind === "mcp"
+      ? `${s.skills.length} skill${s.skills.length === 1 ? "" : "s"} · ${s.tools.length} tool${s.tools.length === 1 ? "" : "s"}${s.protocolVersion ? ` · MCP ${esc(s.protocolVersion)}` : ""}`
+      : `${s.a2aSkills.length} advertised capabilit${s.a2aSkills.length === 1 ? "y" : "ies"}`;
+    const body = s.kind === "mcp" ? `
+      <h3>Skills</h3>${s.skills.map((k) => skillRow(s, k)).join("") || `<div class="desc">none</div>`}
+      <h3>Tools</h3>${s.tools.map((t) => `<div class="item"><span class="tool-icon">⚙</span><div><div class="label mono">${esc(t.name)}</div><div class="desc">${esc(t.description)}</div></div></div>`).join("") || `<div class="desc">none</div>`}`
+      : `<h3>A2A agent capabilities</h3>${s.a2aSkills.map((k) => `<div class="item"><span class="tool-icon">◆</span><div><div class="label">${esc(k.name)}</div><div class="desc">${esc(k.description)}</div>${String(k.id || "").startsWith("mcp-skill:") ? `<div class="desc">Served as an MCP skill by this agent</div>` : ""}</div></div>`).join("") || `<div class="desc">none</div>`}
+        <div class="note">A2A capabilities describe what that agent can do. They aren't loaded into this agent's context.</div>`;
+    return `<details class="source" data-label="${esc(s.label)}" ${openSources.has(s.label) ? "open" : ""}>
+      <summary><div class="name">${esc(s.label)} <span class="tag">${s.kind.toUpperCase()}</span></div><div class="sub">${sub}</div>${s.error ? `<div class="error">${esc(s.error)}</div>` : ""}</summary>
+      <div class="body">${body}
+        <div class="source-foot"><span class="desc mono url" title="${esc(s.url)}">${esc(s.url)}</span>${s.kind === "mcp" ? `<button class="link" onclick="refreshSource('${esc(s.label)}')">Refresh</button>` : ""}<button class="link" onclick="removeSource('${esc(s.label)}')">Disconnect</button></div>
+      </div></details>`;
+  }).join("");
+  document.querySelectorAll(".source").forEach((d) => d.addEventListener("toggle", () => d.open ? openSources.add(d.dataset.label) : openSources.delete(d.dataset.label)));
+}
+
+function eventLabel(m, args) {
+  const skill = String(args?.skill ?? "");
+  if (m.toolName === "skill_load") return m.isError ? `Didn't load skill ${skill}` : `Loaded skill ${skill.split("/").pop()} from ${skill.split("/")[0]}`;
+  if (m.toolName === "skill_read") return m.isError ? `Couldn't read ${args?.path}` : `Read ${args?.path} from ${skill.split("/").pop()}`;
+  if (m.toolName === "bash") return m.isError ? "Command not run" : "Ran a command";
+  const mcp = m.toolName.match(/^mcp__(.+?)__(.+)$/);
+  if (mcp) return `${m.isError ? "Failed" : "Called"} ${mcp[2]} on ${mcp[1]}`;
+  return `${m.isError ? "Failed" : "Used"} ${m.toolName}`;
+}
+
+// MCP-UI: a tool result's `ui://` resource, rendered in a sandboxed iframe (scripts, no same-origin).
+const uiHeights = new Map();
+const RESIZE = `<script>new ResizeObserver(() => parent.postMessage({ type: "ui-size-change", payload: { height: document.documentElement.scrollHeight } }, "*")).observe(document.documentElement)<\/script>`;
+function renderUi(m, r, i) {
+  const key = `${m.callId}#${i}`;
+  const body = r.text ?? (r.blob ? atob(r.blob) : "");
+  const mime = String(r.mimeType || "text/html");
+  const height = uiHeights.get(key) ?? 120;
+  let frame;
+  if (mime.startsWith("text/uri-list")) {
+    const url = body.split(/\r?\n/).find((l) => /^https?:\/\//.test(l.trim()));
+    if (!url) return "";
+    frame = `<iframe sandbox="allow-scripts allow-forms" src="${esc(url.trim())}" data-ui="${esc(key)}" style="height:${height}px"></iframe>`;
+  } else {
+    frame = `<iframe sandbox="allow-scripts allow-forms" srcdoc="${esc(body + RESIZE)}" data-ui="${esc(key)}" style="height:${height}px"></iframe>`;
+  }
+  const server = (m.toolName.match(/^mcp__(.+?)__/) || [])[1];
+  return `<div class="ui-card"><div class="ui-head"><b>${esc(server ?? m.toolName)}</b><span class="mono">${esc(r.uri)}</span></div>${frame}</div>`;
+}
+window.addEventListener("message", (e) => {
+  if (e.data?.type !== "ui-size-change") return;
+  const frame = [...document.querySelectorAll("iframe[data-ui]")].find((f) => f.contentWindow === e.source);
+  const h = Math.min(Math.max(Number(e.data.payload?.height) || 0, 40), 800);
+  if (frame && h) { uiHeights.set(frame.dataset.ui, h); frame.style.height = `${h}px`; }
+});
+
+function renderAsk(p) {
+  if (p.kind === "skill-load") {
+    const k = p.skill;
+    return `<div class="ask">
+      <div class="q">Load the skill “${esc(k.name)}” from ${esc(k.serverLabel)}?</div>
+      <div class="why">${esc(k.description)}. Skills are instructions from a third-party server. Approving lets the agent read ${k.files.length === 1 ? "this file" : `these ${k.files.length} files`}, at this exact version.</div>
+      <div class="files mono">${k.files.map(esc).join(" · ")}</div>
+      ${k.ignoredFields.length ? `<div class="files" style="color:var(--warn)">It asks for ${esc(k.ignoredFields.join(", "))}. That request is ignored.</div>` : ""}
+      <div class="buttons"><button class="primary" onclick="answer('${esc(p.key)}', true)">Approve</button><button onclick="answer('${esc(p.key)}', false)">Decline</button><span class="spacer" style="flex:1"></span><button class="link" onclick="view(${attr({ serverLabel: k.serverLabel, uri: k.uri, name: k.name })})">View SKILL.md first</button></div>
+    </div>`;
+  }
+  return `<div class="ask">
+    <div class="q">Run this ${esc(p.toolName)} command?</div>
+    <div class="why">A skill from a third-party server is in use (${esc((p.activeSkills || []).map((a) => a.split("/").pop()).join(", "))}), so the agent asks before each command.</div>
+    <pre class="mono">${esc(p.arguments?.command ?? JSON.stringify(p.arguments, null, 2))}</pre>
+    <div class="buttons"><button class="primary" onclick="answer('${esc(p.key)}', true)">Run once</button><button onclick="answer('${esc(p.key)}', false)">Don't run</button></div>
+  </div>`;
+}
+
+function renderStream(st) {
+  const box = $("stream");
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const args = new Map();
+  for (const m of st.messages) if (m.role === "assistant") for (const c of m.calls || []) args.set(c.id, c.arguments);
+  const out = [];
+  for (const m of st.messages) {
+    if (m.role === "user") out.push(`<div class="user">${esc(m.text)}</div>`);
+    else if (m.role === "assistant") { if (m.text) out.push(`<div class="assistant">${md(m.text)}</div>`); }
+    else {
+      out.push(`<details class="event ${m.isError ? "err" : ""}"><summary>${esc(eventLabel(m, args.get(m.callId)))}</summary><pre class="mono">${esc(m.text)}</pre></details>`);
+      (m.ui || []).forEach((r, i) => out.push(renderUi(m, r, i)));
+    }
+  }
+  for (const p of st.pending) out.push(renderAsk(p));
+  if (st.busy && !st.pending.length) out.push(`<div class="thinking">Working…</div>`);
+  if (st.error) out.push(`<div class="error">${esc(st.error)}</div>`);
+  if (!out.length) {
+    const n = st.servers.reduce((a, s) => a + s.skills.length, 0);
+    out.push(`<div class="empty"><b>Ask the agent anything</b>${n ? `It can use ${n} skill${n === 1 ? "" : "s"} from connected servers. It asks you before loading one.` : "Connect an MCP server on the left to give it skills."}</div>`);
+  }
+  $("messages").innerHTML = out.join("");
+  if (nearBottom) box.scrollTop = box.scrollHeight;
+}
+
+function renderUsing(st) {
+  $("using").innerHTML = st.active.length
+    ? `Using: ` + st.active.map((a) => `<span class="chip" data-testid="active-skill" title="${esc(a.uri)}">${esc(a.name)} <span class="origin">· ${esc(a.serverLabel)}</span><button title="Stop using and revoke" onclick="revoke(${attr({ serverLabel: a.serverLabel, uri: a.uri })})">×</button></span>`).join("")
+    : "";
+}
+
+async function poll() {
+  try {
+    const st = await api("/api/state");
+    const sig = JSON.stringify(st);
+    if (sig === lastSig) return;
+    lastSig = sig;
+    renderHeader(st); renderSources(st); renderStream(st); renderUsing(st);
+    $("send").disabled = st.busy;
+    $("newChat").disabled = st.busy || st.pending.length > 0 || st.messages.length === 0;
+  } catch (e) {
+    $("agentDot").className = "dot off";
+    $("agentMeta").textContent = e.message;
+  }
+}
+
+$("toggleAdd").onclick = () => { $("addForm").classList.toggle("open"); $("url").focus(); };
+$("addForm").onsubmit = async (e) => {
+  e.preventDefault(); $("addErr").textContent = "";
+  try { const r = await api("/api/servers", { url: $("url").value, label: $("label").value || undefined }); openSources.add(r.label); $("url").value = ""; $("label").value = ""; $("addForm").classList.remove("open"); }
+  catch (err) { $("addErr").textContent = err.message; }
+  poll();
+};
+$("chatForm").onsubmit = async (e) => { e.preventDefault(); const t = $("text").value.trim(); if (!t) return; $("text").value = ""; await api("/api/chat", { text: t }); poll(); };
+$("newChat").onclick = async () => { try { await api("/api/chat/new", {}); } catch (err) { alert(err.message); } poll(); $("text").focus(); };
+window.answer = async (key, allow) => { await api(`/api/approvals/${encodeURIComponent(key)}`, { allow }); poll(); };
+window.removeSource = async (label) => { await api(`/api/servers/${encodeURIComponent(label)}`, undefined, "DELETE"); poll(); };
+window.refreshSource = async (label) => { await api(`/api/servers/${encodeURIComponent(label)}/refresh`, {}); poll(); };
+window.revoke = async (ref) => { await api("/api/skills/revoke", ref); poll(); };
+window.view = async (ref) => {
+  try { const r = await api("/api/skills/inspect", ref); $("viewerTitle").textContent = `${ref.name} — ${r.path} (${r.verified ? "verified" : "unverified"}, preview only)`; $("viewerBody").textContent = r.text; }
+  catch (err) { $("viewerTitle").textContent = ref.name; $("viewerBody").textContent = err.message; }
+  viewer.showModal();
+};
+poll(); setInterval(poll, 700);
+</script>
+</body>
+</html>

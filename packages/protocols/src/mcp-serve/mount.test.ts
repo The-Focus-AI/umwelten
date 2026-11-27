@@ -7,7 +7,12 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { memorySkillFiles, SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
+import { z } from 'zod';
+import { RemoteMcpClient } from '../mcp/client/remote.js';
+import { McpSkillHost } from '../mcp/skills/host.js';
+import { hashToken } from './oauth/token.js';
 import { createMcpServeMount, isMcpServeMountPath } from './mount.js';
 import { MemoryStore } from './memory-store.js';
 import type { UpstreamOAuthProvider } from './types.js';
@@ -194,5 +199,66 @@ describe('createMcpServeMount', () => {
     expect(await mount.handle(fakeReq('GET', '/agents/demo/'), res, '', BASE)).toBe(false);
     // Wrong method on an owned path falls through too.
     expect(await mount.handle(fakeReq('GET', '/agents/demo/oauth/register'), res, 'oauth/register', BASE)).toBe(false);
+  });
+});
+
+describe('createMcpServeMount — authenticated MCP over SDK 2.x', () => {
+  it('serves per-user tools and skills, preserving ui:// resources and _meta for RemoteMcpClient', async () => {
+    const store = new MemoryStore();
+    await store.createToken(hashToken('tok-1'), 'user-1', 'client-1', 'access', new Date(Date.now() + 60_000));
+    await store.upsertUpstreamTokens('user-1', { access_token: 'upstream-a', refresh_token: 'r', expires_at: null });
+    const skills = await SkillsExtension.load(
+      memorySkillFiles({ 'post/SKILL.md': '---\nname: post\ndescription: How to post\n---\nBe brief.\n' }),
+    );
+    const mount = createMcpServeMount({
+      name: 'demo-agent',
+      upstream: stubUpstream(),
+      store,
+      skills,
+      registerTools: async (server, userId, getUpstreamToken) => {
+        server.registerTool(
+          'whoami',
+          { description: 'Who is calling', inputSchema: z.object({}) },
+          async () => ({
+            content: [
+              { type: 'text', text: `${userId} via ${await getUpstreamToken()}` },
+              { type: 'resource', resource: { uri: 'ui://whoami/card', mimeType: 'text/html', text: '<b>hi</b>' } },
+            ],
+            _meta: { 'umwelten/trace': 't-1' },
+          }),
+        );
+      },
+    });
+    const http = createServer((req, res) => {
+      const sub = new URL(req.url ?? '/', 'http://x').pathname.replace(/^\/agents\/demo\/?/, '');
+      void mount.handle(req, res, sub, `http://127.0.0.1/agents/demo`);
+    });
+    await new Promise<void>((r) => http.listen(0, '127.0.0.1', r));
+    const port = (http.address() as { port: number }).port;
+    const client = new RemoteMcpClient({
+      serverUrl: `http://127.0.0.1:${port}/agents/demo/mcp`,
+      label: 'demo',
+      headers: { authorization: 'Bearer tok-1' },
+      interactiveAuth: false,
+    });
+    try {
+      await client.connect();
+      expect(client.protocolVersion).toBe('2026-07-28');
+      expect(client.getToolNames()).toEqual(['whoami']);
+      const result = (await client.getTools().whoami!.execute({})) as Record<string, unknown>;
+      expect(result).toMatchObject({
+        success: true,
+        data: 'user-1 via upstream-a',
+        _uiResources: [{ uri: 'ui://whoami/card', mimeType: 'text/html', text: '<b>hi</b>' }],
+        _meta: { 'umwelten/trace': 't-1' },
+      });
+      const host = new McpSkillHost();
+      await host.addServer(client);
+      expect(host.list().map((r) => r.qualifiedName)).toEqual(['demo/post']);
+    } finally {
+      await client.disconnect();
+      http.closeAllConnections();
+      await new Promise<void>((r) => http.close(() => r()));
+    }
   });
 });

@@ -43,11 +43,11 @@ Protected, repository-agnostic rules shared across **TheFocus.AI** projects:
 - [`exchange/mycel-and-suppliers`](./specs/exchange/mycel-and-suppliers.md) — Closed-membership Mycel Exchange, integer micro-dollar boundary metering, Guarantee/Capability hard-filtered dispatch, and outbound WebSocket GPU Supplier dial-in (`@umwelten/mycel`, `@umwelten/supplier`).
 
 ### Interfaces Layer
-- [`interfaces/protocols-and-extensions`](./specs/interfaces/protocols-and-extensions.md) — A2A v1.0 (`@leocavalcante/pi-a2a`), `@earendil-works/pi-mcp` client preserving `ui://` resources, `mcp-serve` OAuth 2.1 server, published `umwelten` CLI bundle, and installable `@umwelten/pi` extensions (`@umwelten/protocols`, `@umwelten/pi`, `@umwelten/cli`, `umwelten`).
+- [`interfaces/protocols-and-extensions`](./specs/interfaces/protocols-and-extensions.md) — A2A v1.0 (`@leocavalcante/pi-a2a`), MCP client/server on the official SDK 2.x (protocol `2026-07-28`) preserving `ui://` resources, the MCP Skills extension (server catalog, host approval/verification, pi-durable `skill_load`), A2A↔MCP skill mapping, `mcp-serve` OAuth 2.1 server, published `umwelten` CLI bundle, and installable `@umwelten/pi` extensions (`@umwelten/protocols`, `@umwelten/pi`, `@umwelten/cli`, `umwelten`).
 
 ---
 
 ## Ledgers & Immutable Verification Runs
 
-- [`decisions.jsonl`](./decisions.jsonl) — Append-only JSONL record of architectural choices and simplifications (`D-1`..`D-9`).
+- [`decisions.jsonl`](./decisions.jsonl) — Append-only JSONL record of architectural choices and simplifications (`D-1`..`D-12`).
 - [`runs/`](./runs/) — Immutable timestamped verification outputs (`<YYYY-MM-DDTHH-MM-SSZ>_<short-sha[-dirty]>/`).
